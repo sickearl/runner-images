@@ -75,7 +75,7 @@ source "hyperv-iso" "vm" {
 
   output_directory = var.output_directory
 
-  boot_wait    = "3s"
+  boot_wait    = "1s"
   boot_command = ["<enter>"]
 
   cd_files = [

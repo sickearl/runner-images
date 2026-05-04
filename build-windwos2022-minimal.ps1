@@ -3,6 +3,8 @@
 # Set-ExecutionPolicy Bypass -Scope Process -Force
 # iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 
+# winget install "Windows Assessment and Deployment Kit" --override "/quiet /features OptionId.DeploymentTools"
+
 #choco install packer
 # OR
 #winget install Hashicorp.Packer
