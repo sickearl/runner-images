@@ -1,10 +1,4 @@
 # windows-2022-minimal-dotnet.pkr.hcl
-# Minimal .NET Framework build environment
-# Uses official Microsoft scripts from runner-images repo
-
-# ============================================================================
-# REQUIRED PLUGINS
-# ============================================================================
 
 packer {
   required_version = ">= 1.7.0"
@@ -22,8 +16,7 @@ packer {
 
 variable "iso_url" {
   type    = string
-  # MODIFICA QUESTO PATH con la tua ISO location
-  default = "file:///D:/virtual machine/SERVER_EVAL_x64FRE_en-us.iso"
+  default = "file:///C:/Devel/local pipeline/SERVER_EVAL_x64FRE_en-us.iso"
 }
 
 variable "iso_checksum" {
@@ -57,47 +50,45 @@ variable "image_folder" {
   default = "C:\\image"
 }
 
+variable "toolset_file_path" {
+  type    = string
+  default = "./toolsets/toolset-2022-minimal.json"
+}
+
 # ============================================================================
 # SOURCE
 # ============================================================================
 
 source "hyperv-iso" "vm" {
-  # ISO Configuration
   iso_url      = var.iso_url
   iso_checksum = var.iso_checksum
-  
-  # VM Configuration
-  vm_name              = var.vm_name
-  generation           = 2
-  switch_name          = "Default Switch"
-  enable_secure_boot   = false
+
+  vm_name               = var.vm_name
+  generation            = 2
+  switch_name           = "Default Switch"
+  enable_secure_boot    = false
   enable_dynamic_memory = true
-  memory               = 8192
-  cpus                 = 4
-  disk_size            = 81920  # 80GB
-  disk_block_size      = 1
-  
-  # Output
+  memory                = 8192
+  cpus                  = 4
+  disk_size             = 81920
+  disk_block_size       = 1
+
   output_directory = var.output_directory
-  
-  # Boot
+
   boot_wait    = "3s"
   boot_command = ["<enter>"]
-  
-  # Unattended installation files (path relativi a images/windows/templates/)
+
   cd_files = [
     "${path.root}/../answer_files/Autounattend.xml",
-    "${path.root}/../scripts/provisioners/"
+    "${path.root}/../scripts/provisioners/setup-winrm.ps1"
   ]
-  
-  # WinRM Configuration
+
   communicator   = "winrm"
   winrm_username = var.winrm_username
   winrm_password = var.winrm_password
   winrm_timeout  = "12h"
   winrm_use_ssl  = false
-  
-  # Shutdown
+
   shutdown_command = "C:\\Windows\\System32\\Sysprep\\Sysprep.exe /generalize /oobe /shutdown /quiet"
   shutdown_timeout = "1h"
 }
@@ -109,18 +100,26 @@ source "hyperv-iso" "vm" {
 build {
   sources = ["source.hyperv-iso.vm"]
 
-  # === PHASE 1: Initial Setup ===
+  # === PHASE 1: Crea cartella immagine ===
   provisioner "powershell" {
     inline = [
-      "Write-Host 'Creating image folder...'",
       "New-Item -Path '${var.image_folder}' -ItemType Directory -Force | Out-Null"
     ]
   }
 
-  # === PHASE 2: Configure Windows ===
+  # === PHASE 2: Copia toolset.json nella VM ===
+  provisioner "file" {
+    destination = "${var.image_folder}\\toolset.json"
+    source      = var.toolset_file_path
+  }
+
+  # === PHASE 3: Configurazione base Windows ===
   provisioner "powershell" {
-    environment_vars = ["IMAGE_VERSION=minimal-dotnet"]
-    scripts          = ["${path.root}/../scripts/build/Configure-WindowsDefender.ps1"]
+    scripts = ["${path.root}/../scripts/build/Configure-WindowsDefender.ps1"]
+  }
+
+  provisioner "powershell" {
+    scripts = ["${path.root}/../scripts/build/Configure-PowerShell.ps1"]
   }
 
   provisioner "powershell" {
@@ -128,83 +127,81 @@ build {
   }
 
   provisioner "powershell" {
-    scripts = ["${path.root}/../scripts/build/Configure-PowerShell.ps1"]
+    scripts = ["${path.root}/../scripts/build/Configure-System.ps1"]
   }
 
-  # === PHASE 3: Install PowerShell 7 ===
   provisioner "powershell" {
-    scripts = ["${path.root}/../scripts/build/Install-PowerShellCore.ps1"]
+    scripts = ["${path.root}/../scripts/build/Configure-SystemEnvironment.ps1"]
   }
 
-  # === PHASE 4: Install Chocolatey ===
+  # === PHASE 4: Windows Features (.NET Framework incluso) ===
+  provisioner "powershell" {
+    elevated_password = var.winrm_password
+    elevated_user     = var.winrm_username
+    scripts           = ["${path.root}/../scripts/build/Install-WindowsFeatures.ps1"]
+  }
+
+  # === PHASE 5: PowerShell 7 ===
+  provisioner "powershell" {
+    elevated_password = var.winrm_password
+    elevated_user     = var.winrm_username
+    scripts           = ["${path.root}/../scripts/build/Install-PowershellCore.ps1"]
+  }
+
+  # === PHASE 6: Chocolatey ===
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
     scripts           = ["${path.root}/../scripts/build/Install-Chocolatey.ps1"]
   }
 
-  # === PHASE 5: Install Git ===
+  # === PHASE 7: Git ===
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
     scripts           = ["${path.root}/../scripts/build/Install-Git.ps1"]
   }
 
-  # === PHASE 6: Install .NET Framework ===
+  # === PHASE 8: Visual Studio Build Tools ===
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
-    scripts           = [
-      "${path.root}/../scripts/build/Install-NET48.ps1"
-    ]
+    scripts           = ["${path.root}/../scripts/build/Install-VisualStudio.ps1"]
   }
 
-  # === PHASE 7: Install .NET SDK ===
+  # === PHASE 9: .NET SDK ===
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
     scripts           = ["${path.root}/../scripts/build/Install-DotnetSDK.ps1"]
   }
 
-  # === PHASE 8: Install Visual Studio Build Tools ===
+  # === PHASE 10: Toolset (legge toolset.json) ===
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
-    environment_vars  = ["TOOLSET_VERSION=2022"]
-    scripts           = ["${path.root}/../scripts/build/Install-VisualStudio.ps1"]
+    scripts           = ["${path.root}/../scripts/build/Install-Toolset.ps1"]
   }
 
-  # === PHASE 9: Install NuGet ===
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
-    scripts           = ["${path.root}/../scripts/build/Install-Nuget.ps1"]
+    scripts           = ["${path.root}/../scripts/build/Configure-Toolset.ps1"]
   }
 
-  # === PHASE 10: Create Agent Directory Structure ===
+  # === PHASE 11: Native Images (.NET assembly optimization) ===
+  provisioner "powershell" {
+    elevated_password = var.winrm_password
+    elevated_user     = var.winrm_username
+    scripts           = ["${path.root}/../scripts/build/Install-NativeImages.ps1"]
+  }
+
+  # === PHASE 12: Crea struttura directory agent ===
   provisioner "powershell" {
     inline = [
-      "Write-Host 'Creating agent directory structure...'",
-      "New-Item -Path 'C:\\agent' -ItemType Directory -Force | Out-Null",
-      "New-Item -Path 'C:\\agent\\_work' -ItemType Directory -Force | Out-Null",
-      "New-Item -Path 'C:\\agent\\_work\\1' -ItemType Directory -Force | Out-Null",
       "New-Item -Path 'C:\\agent\\_work\\1\\s' -ItemType Directory -Force | Out-Null",
       "New-Item -Path 'C:\\agent\\_work\\1\\a' -ItemType Directory -Force | Out-Null"
     ]
-  }
-
-  # === PHASE 11: Optimize .NET Assemblies ===
-  provisioner "powershell" {
-    elevated_password = var.winrm_password
-    elevated_user     = var.winrm_username
-    scripts           = ["${path.root}/../scripts/build/Run-NGen.ps1"]
-  }
-
-  # === PHASE 12: Finalize VM ===
-  provisioner "powershell" {
-    elevated_password = var.winrm_password
-    elevated_user     = var.winrm_username
-    scripts           = ["${path.root}/../scripts/build/Finalize-VM.ps1"]
   }
 
   # === PHASE 13: Restart ===
@@ -212,23 +209,24 @@ build {
     restart_timeout = "30m"
   }
 
-  # === PHASE 14: Wait After Restart ===
+  # === PHASE 14: Windows Updates post-restart ===
   provisioner "powershell" {
-    pause_before = "2m0s"
-    inline       = ["Write-Host 'Waiting after restart...'", "Start-Sleep -Seconds 30"]
+    pause_before      = "2m0s"
+    elevated_password = var.winrm_password
+    elevated_user     = var.winrm_username
+    scripts           = ["${path.root}/../scripts/build/Install-WindowsUpdatesAfterReboot.ps1"]
   }
 
   # === PHASE 15: Cleanup ===
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
-    scripts           = ["${path.root}/../scripts/build/Cleanup-VM.ps1"]
+    scripts           = ["${path.root}/../scripts/build/Invoke-Cleanup.ps1"]
   }
 
   # === PHASE 16: Sysprep ===
   provisioner "powershell" {
     inline = [
-      "Write-Host 'Preparing for Sysprep...'",
       "if (Test-Path $Env:SystemRoot\\System32\\Sysprep\\unattend.xml) {",
       "  Remove-Item $Env:SystemRoot\\System32\\Sysprep\\unattend.xml -Force",
       "}"
