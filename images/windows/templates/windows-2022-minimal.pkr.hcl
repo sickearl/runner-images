@@ -23,7 +23,7 @@ packer {
 variable "iso_url" {
   type    = string
   # MODIFICA QUESTO PATH con la tua ISO location
-  default = "file:///C:/Devel/local pipeline/SERVER_EVAL_x64FRE_en-us.iso"
+  default = "file:///D:/virtual machine/SERVER_EVAL_x64FRE_en-us.iso"
 }
 
 variable "iso_checksum" {
@@ -84,10 +84,10 @@ source "hyperv-iso" "vm" {
   boot_wait    = "3s"
   boot_command = ["<enter>"]
   
-  # Unattended installation files
+  # Unattended installation files (path relativi a images/windows/templates/)
   cd_files = [
-    "${path.root}/answer_files/Autounattend.xml",
-    "${path.root}/scripts/provisioners/"
+    "${path.root}/../answer_files/Autounattend.xml",
+    "${path.root}/../scripts/provisioners/"
   ]
   
   # WinRM Configuration
@@ -120,34 +120,34 @@ build {
   # === PHASE 2: Configure Windows ===
   provisioner "powershell" {
     environment_vars = ["IMAGE_VERSION=minimal-dotnet"]
-    scripts          = ["${path.root}/scripts/build/Configure-WindowsDefender.ps1"]
+    scripts          = ["${path.root}/../scripts/build/Configure-WindowsDefender.ps1"]
   }
 
   provisioner "powershell" {
-    scripts = ["${path.root}/scripts/build/Configure-DynamicPort.ps1"]
+    scripts = ["${path.root}/../scripts/build/Configure-DynamicPort.ps1"]
   }
 
   provisioner "powershell" {
-    scripts = ["${path.root}/scripts/build/Configure-PowerShell.ps1"]
+    scripts = ["${path.root}/../scripts/build/Configure-PowerShell.ps1"]
   }
 
   # === PHASE 3: Install PowerShell 7 ===
   provisioner "powershell" {
-    scripts = ["${path.root}/scripts/build/Install-PowerShellCore.ps1"]
+    scripts = ["${path.root}/../scripts/build/Install-PowerShellCore.ps1"]
   }
 
   # === PHASE 4: Install Chocolatey ===
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
-    scripts           = ["${path.root}/scripts/build/Install-Chocolatey.ps1"]
+    scripts           = ["${path.root}/../scripts/build/Install-Chocolatey.ps1"]
   }
 
   # === PHASE 5: Install Git ===
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
-    scripts           = ["${path.root}/scripts/build/Install-Git.ps1"]
+    scripts           = ["${path.root}/../scripts/build/Install-Git.ps1"]
   }
 
   # === PHASE 6: Install .NET Framework ===
@@ -155,15 +155,15 @@ build {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
     scripts           = [
-      "${path.root}/scripts/build/Install-NET48.ps1"
+      "${path.root}/../scripts/build/Install-NET48.ps1"
     ]
   }
 
-  # === PHASE 7: Install .NET SDK (if needed for newer .NET) ===
+  # === PHASE 7: Install .NET SDK ===
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
-    scripts           = ["${path.root}/scripts/build/Install-DotnetSDK.ps1"]
+    scripts           = ["${path.root}/../scripts/build/Install-DotnetSDK.ps1"]
   }
 
   # === PHASE 8: Install Visual Studio Build Tools ===
@@ -171,14 +171,14 @@ build {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
     environment_vars  = ["TOOLSET_VERSION=2022"]
-    scripts           = ["${path.root}/scripts/build/Install-VisualStudio.ps1"]
+    scripts           = ["${path.root}/../scripts/build/Install-VisualStudio.ps1"]
   }
 
   # === PHASE 9: Install NuGet ===
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
-    scripts           = ["${path.root}/scripts/build/Install-Nuget.ps1"]
+    scripts           = ["${path.root}/../scripts/build/Install-Nuget.ps1"]
   }
 
   # === PHASE 10: Create Agent Directory Structure ===
@@ -197,14 +197,14 @@ build {
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
-    scripts           = ["${path.root}/scripts/build/Run-NGen.ps1"]
+    scripts           = ["${path.root}/../scripts/build/Run-NGen.ps1"]
   }
 
   # === PHASE 12: Finalize VM ===
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
-    scripts           = ["${path.root}/scripts/build/Finalize-VM.ps1"]
+    scripts           = ["${path.root}/../scripts/build/Finalize-VM.ps1"]
   }
 
   # === PHASE 13: Restart ===
@@ -222,7 +222,7 @@ build {
   provisioner "powershell" {
     elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
-    scripts           = ["${path.root}/scripts/build/Cleanup-VM.ps1"]
+    scripts           = ["${path.root}/../scripts/build/Cleanup-VM.ps1"]
   }
 
   # === PHASE 16: Sysprep ===

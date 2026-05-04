@@ -1,14 +1,23 @@
+
+# 1. Chocolatey
+# Set-ExecutionPolicy Bypass -Scope Process -Force
+# iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+#choco install packer
+# OR
+#winget install Hashicorp.Packer
+
 # Assicurati di essere nella directory corretta
-cd C:\Devel\pipeline-agent\runner-images\images\windows
+cd images\windows
 
 # Init (scarica plugin)
-packer init templates/windows-2022-minimal-dotnet.pkr.hcl
+packer init templates/windows-2022-minimal.pkr.hcl
 
 # Validate
-packer validate templates/windows-2022-minimal-dotnet.pkr.hcl
+packer validate templates/windows-2022-minimal.pkr.hcl
 
 # Se validation OK, builda
 $env:PACKER_LOG=1
 $env:PACKER_LOG_PATH="packer-build.log"
 
-packer build templates/windows-2022-minimal-dotnet.pkr.hcl
+packer build templates/windows-2022-minimal.pkr.hcl
