@@ -1,0 +1,47 @@
+{
+  "toolcache": [],
+  "version": "Windows Server 2022 - Minimal .NET Build",
+  "android": null,
+  "apt": {
+    "common_packages": []
+  },
+  "azureModules": [],
+  "brew": {},
+  "chocolatey": {},
+  "docker": {
+    "images": []
+  },
+  "dotnet": {
+    "aptPackages": [],
+    "versions": [
+      "4.8.1",
+      "4.8",
+      "4.7.2"
+    ]
+  },
+  "gcc": {},
+  "git": {
+    "version": "2.43.0"
+  },
+  "github": {},
+  "go": {},
+  "java": {},
+  "node": {},
+  "powershellModules": [
+    {"name": "Pester"}
+  ],
+  "ruby": {},
+  "rust": {},
+  "selenium": {},
+  "visualStudio": {
+    "edition": "BuildTools",
+    "version": "17.8",
+    "workloads": [
+      "MSBuildTools",
+      "NetCoreBuildTools"
+    ]
+  },
+  "nuget": {
+    "version": "6.8.0"
+  }
+}
