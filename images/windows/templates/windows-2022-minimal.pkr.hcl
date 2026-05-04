@@ -16,7 +16,9 @@ packer {
 
 variable "iso_url" {
   type    = string
-  default = "file:///C:/Devel/local pipeline/SERVER_EVAL_x64FRE_en-us.iso"
+  # default = "file:///C:/Devel/local pipeline/SERVER_EVAL_x64FRE_en-us.iso"
+   default = "file:///D:/virtual machine/SERVER_EVAL_x64FRE_en-us.iso"
+
 }
 
 variable "iso_checksum" {
@@ -47,7 +49,8 @@ variable "winrm_password" {
 
 variable "image_folder" {
   type    = string
-  default = "C:\\image"
+  # default = "C:\\image"
+  default = "D:\\image"
 }
 
 variable "toolset_file_path" {
