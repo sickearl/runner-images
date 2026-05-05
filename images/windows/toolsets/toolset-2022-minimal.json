@@ -1,10 +1,7 @@
 {
   "toolcache": [],
 
-  "windowsFeatures": [
-    { "name": "NetFx4" },
-    { "name": "NetFx4Extended-ASPNET45" }
-  ],
+  "windowsFeatures": [],
 
   "pwsh": {
     "version": "7.4"
