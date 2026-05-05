@@ -16,8 +16,8 @@ packer {
 
 variable "iso_url" {
   type    = string
-  # default = "file:///C:/Devel/local pipeline/SERVER_EVAL_x64FRE_en-us.iso"
-   default = "file:///D:/virtual machine/SERVER_EVAL_x64FRE_en-us.iso"
+  default = "file:///C:/Devel/local pipeline/SERVER_EVAL_x64FRE_en-us.iso"
+  # default = "file:///D:/virtual machine/SERVER_EVAL_x64FRE_en-us.iso"
 
 }
 
@@ -49,8 +49,8 @@ variable "winrm_password" {
 
 variable "image_folder" {
   type    = string
-  # default = "C:\\image"
-  default = "D:\\image"
+  default = "C:\\image"
+  # default = "D:\\image"
 }
 
 variable "toolset_file_path" {
@@ -67,9 +67,8 @@ source "hyperv-iso" "vm" {
   iso_checksum = var.iso_checksum
 
   vm_name               = var.vm_name
-  generation            = 2
-  switch_name           = "Default Switch"
-  enable_secure_boot    = false
+  generation            = 1
+  switch_name           = "Default Switch"  
   enable_dynamic_memory = true
   memory                = 8192
   cpus                  = 4
@@ -78,7 +77,7 @@ source "hyperv-iso" "vm" {
 
   output_directory = var.output_directory
 
-  boot_wait    = "1s"
+  boot_wait    = "5s"
   boot_command = ["<enter>"]
 
   cd_files = [
