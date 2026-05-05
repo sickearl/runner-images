@@ -1,47 +1,51 @@
 {
   "toolcache": [],
-  "version": "Windows Server 2022 - Minimal .NET Build",
-  "android": null,
-  "apt": {
-    "common_packages": []
+
+  "windowsFeatures": [
+    { "name": "NetFx4" },
+    { "name": "NetFx4Extended-ASPNET45" }
+  ],
+
+  "pwsh": {
+    "version": "7.4"
   },
-  "azureModules": [],
-  "brew": {},
-  "chocolatey": {},
-  "docker": {
-    "images": []
+
+  "visualStudio": {
+    "edition": "BuildTools",
+    "channel": "VisualStudio.17.Release",
+    "version": "17",
+    "workloads": [
+      "Microsoft.VisualStudio.Workload.MSBuildTools",
+      "Microsoft.VisualStudio.Workload.NetCoreBuildTools"
+    ],
+    "components": [
+      "Microsoft.Net.Component.4.8.1.SDK",
+      "Microsoft.Net.Component.4.8.SDK",
+      "Microsoft.Net.Component.4.7.2.SDK",
+      "Microsoft.Net.Component.4.7.2.TargetingPack",
+      "Microsoft.Net.Component.4.6.2.TargetingPack",
+      "Microsoft.Net.ComponentGroup.4.8.DeveloperTools",
+      "Microsoft.VisualStudio.Component.NuGet.BuildTools",
+      "Microsoft.VisualStudio.Component.Roslyn.Compiler",
+      "Microsoft.Component.MSBuild"
+    ],
+    "removeWorkloads": []
   },
+
   "dotnet": {
     "aptPackages": [],
-    "versions": [
-      "4.8.1",
-      "4.8",
-      "4.7.2"
+    "frameworks": [
+      { "version": "4.8.1", "packageType": "sdk" },
+      { "version": "4.8",   "packageType": "sdk" },
+      { "version": "4.7.2", "packageType": "targeting-pack" }
     ]
   },
-  "gcc": {},
+
   "git": {
     "version": "2.43.0"
   },
-  "github": {},
-  "go": {},
-  "java": {},
-  "node": {},
-  "powershellModules": [
-    {"name": "Pester"}
-  ],
-  "ruby": {},
-  "rust": {},
-  "selenium": {},
-  "visualStudio": {
-    "edition": "BuildTools",
-    "version": "17.8",
-    "workloads": [
-      "MSBuildTools",
-      "NetCoreBuildTools"
-    ]
-  },
-  "nuget": {
-    "version": "6.8.0"
-  }
+
+  "psModules": [
+    { "name": "Pester", "version": "5.5.0" }
+  ]
 }
