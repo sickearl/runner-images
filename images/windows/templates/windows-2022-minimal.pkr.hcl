@@ -16,9 +16,7 @@ packer {
 
 variable "iso_url" {
   type    = string
-  # default = "file:///C:/Devel/local pipeline/SERVER_EVAL_x64FRE_en-us.iso"
   default = "file:///D:/virtual machine/SERVER_EVAL_x64FRE_en-us.iso"
-
 }
 
 variable "iso_checksum" {
@@ -49,7 +47,7 @@ variable "winrm_password" {
 
 variable "image_folder" {
   type    = string
-  default = "C:\\image"  
+  default = "C:\\image"
 }
 
 variable "toolset_file_path" {
@@ -67,7 +65,7 @@ source "hyperv-iso" "vm" {
 
   vm_name               = var.vm_name
   generation            = 1
-  switch_name           = "Default Switch"  
+  switch_name           = "Default Switch"
   enable_dynamic_memory = true
   memory                = 8192
   cpus                  = 4
@@ -80,7 +78,7 @@ source "hyperv-iso" "vm" {
   boot_command = ["<enter>"]
 
   cd_files = [
-    "${path.root}/../answer_files/Autounattend.xml"    
+    "${path.root}/../answer_files/Autounattend.xml"
   ]
 
   communicator   = "winrm"
@@ -100,15 +98,18 @@ source "hyperv-iso" "vm" {
 build {
   sources = ["source.hyperv-iso.vm"]
 
-  # === FASE 0a: Crea struttura cartelle ===
+  # === FASE 0a: Crea struttura cartelle (elevated) ===
   provisioner "powershell" {
+    elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
     inline = [
       "New-Item -Path '${var.image_folder}' -ItemType Directory -Force | Out-Null",
       "New-Item -Path '${var.image_folder}\\scripts\\build' -ItemType Directory -Force | Out-Null",
       "New-Item -Path '${var.image_folder}\\scripts\\helpers' -ItemType Directory -Force | Out-Null",
       "New-Item -Path '${var.image_folder}\\scripts\\tests' -ItemType Directory -Force | Out-Null",
       "New-Item -Path '${var.image_folder}\\scripts\\docs-gen' -ItemType Directory -Force | Out-Null",
-	  "New-Item -Path '${var.image_folder}\\tests' -ItemType Directory -Force | Out-Null"  
+      "New-Item -Path '${var.image_folder}\\tests' -ItemType Directory -Force | Out-Null",
+      "Write-Host 'Directories created'"
     ]
   }
 
@@ -132,8 +133,8 @@ build {
     destination = "${var.image_folder}\\scripts\\docs-gen\\"
     source      = "${path.root}/../scripts/docs-gen/"
   }
-  
-    # === FASE 0b-extra: Copia tests anche nel path atteso dagli script ===
+
+  # Copia tests nel path atteso dagli script
   provisioner "file" {
     destination = "${var.image_folder}\\tests\\"
     source      = "${path.root}/../scripts/tests/"
@@ -145,21 +146,27 @@ build {
     source      = var.toolset_file_path
   }
 
-   # === FASE 0d: Configura profilo PowerShell globale ===
+  # === FASE 0d: Installa moduli PowerShell e profilo globale (elevated) ===
   provisioner "powershell" {
+    elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
     inline = [
+      # ImageHelpers
       "$modulePath = 'C:\\Program Files\\WindowsPowerShell\\Modules\\ImageHelpers'",
       "New-Item -Path $modulePath -ItemType Directory -Force | Out-Null",
       "Copy-Item '${var.image_folder}\\scripts\\helpers\\*' $modulePath -Recurse -Force",
 
+      # Helpers (tests)
       "$testModulePath = 'C:\\Program Files\\WindowsPowerShell\\Modules\\Helpers'",
       "New-Item -Path $testModulePath -ItemType Directory -Force | Out-Null",
       "Copy-Item '${var.image_folder}\\scripts\\tests\\Helpers.psm1' \"$testModulePath\\Helpers.psm1\" -Force",
 
+      # Profilo globale - importa moduli ad ogni sessione
       "$profilePath = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\profile.ps1'",
       "$profileContent = \"Import-Module ImageHelpers -Force -ErrorAction SilentlyContinue`nImport-Module Helpers -Force -ErrorAction SilentlyContinue\"",
       "Set-Content -Path $profilePath -Value $profileContent -Encoding UTF8",
 
+      # Verifica
       ". $profilePath",
       "if (Get-Command Invoke-PesterTests -ErrorAction SilentlyContinue) { Write-Host 'OK: Invoke-PesterTests available' } else { Write-Host 'WARNING: Invoke-PesterTests not found' }"
     ]
@@ -167,14 +174,16 @@ build {
 
   # === FASE 0e: Imposta IMAGE_FOLDER come variabile d'ambiente globale ===
   provisioner "powershell" {
+    elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
     inline = [
       "[Environment]::SetEnvironmentVariable('IMAGE_FOLDER', '${var.image_folder}', 'Machine')",
       "$env:IMAGE_FOLDER = '${var.image_folder}'",
-      "Write-Host \"IMAGE_FOLDER set to: $env:IMAGE_FOLDER\""
+      "Write-Host \"IMAGE_FOLDER set to: ${var.image_folder}\""
     ]
   }
 
-  # === FASE 1: Configure Windows ===
+  # === FASE 1: Configura Windows (script Microsoft) ===
   provisioner "powershell" {
     environment_vars = [
       "IMAGE_VERSION=minimal-dotnet",
@@ -203,79 +212,92 @@ build {
     scripts          = ["${path.root}/../scripts/build/Configure-SystemEnvironment.ps1"]
   }
 
-  # === FASE 2: Windows Features ===
+  # === FASE 2: Chocolatey (via script Microsoft, funziona bene) ===
   provisioner "powershell" {
-    elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
-    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
-    scripts           = ["${path.root}/../scripts/build/Install-WindowsFeatures.ps1"]
-  }
-
-  # === FASE 3: PowerShell 7 ===
-  provisioner "powershell" {
     elevated_password = var.winrm_password
-    elevated_user     = var.winrm_username
-    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
-    scripts           = ["${path.root}/../scripts/build/Install-PowershellCore.ps1"]
-  }
-
-  # === FASE 4: Chocolatey ===
-  provisioner "powershell" {
-    elevated_password = var.winrm_password
-    elevated_user     = var.winrm_username
     environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
     scripts           = ["${path.root}/../scripts/build/Install-Chocolatey.ps1"]
   }
 
-  # === FASE 5: Git ===
+  # === FASE 3: PowerShell 7 (via Chocolatey, evita checksum issues) ===
   provisioner "powershell" {
-    elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
+    inline = [
+      "Write-Host 'Installing PowerShell 7...'",
+      "choco install powershell-core -y",
+      "Write-Host 'PowerShell 7 installed'"
+    ]
+  }
+
+  # === FASE 4: Git (via script Microsoft, funziona bene) ===
+  provisioner "powershell" {
+    elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
     environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
     scripts           = ["${path.root}/../scripts/build/Install-Git.ps1"]
   }
 
-  # === FASE 6: Visual Studio Build Tools ===
+  # === FASE 5: Visual Studio Build Tools (via script Microsoft) ===
   provisioner "powershell" {
-    elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
     environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
     scripts           = ["${path.root}/../scripts/build/Install-VisualStudio.ps1"]
   }
 
-  # === FASE 7: .NET SDK ===
+  # === FASE 6: .NET SDK (via Chocolatey, evita checksum issues) ===
   provisioner "powershell" {
-    elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
-    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
-    scripts           = ["${path.root}/../scripts/build/Install-DotnetSDK.ps1"]
+    elevated_password = var.winrm_password
+    inline = [
+      "Write-Host 'Installing .NET Framework Dev Packs...'",
+      "choco install netfx-4.8.1-devpack -y",
+      "choco install netfx-4.8-devpack -y",
+      "choco install netfx-4.7.2-devpack -y",
+      "Write-Host '.NET Framework Dev Packs installed'"
+    ]
   }
 
-  # === FASE 8: Toolset ===
+  # === FASE 7: NuGet CLI ===
   provisioner "powershell" {
-    elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
+    inline = [
+      "Write-Host 'Installing NuGet CLI...'",
+      "choco install nuget.commandline -y",
+      "Write-Host 'NuGet installed'"
+    ]
+  }
+
+  # === FASE 8: Toolset (via script Microsoft) ===
+  provisioner "powershell" {
+    elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
     environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
     scripts           = ["${path.root}/../scripts/build/Install-Toolset.ps1"]
   }
 
   provisioner "powershell" {
-    elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
     environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
     scripts           = ["${path.root}/../scripts/build/Configure-Toolset.ps1"]
   }
 
-  # === FASE 9: Native Images ===
+  # === FASE 9: Native Images (.NET assembly optimization) ===
   provisioner "powershell" {
-    elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
     environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
     scripts           = ["${path.root}/../scripts/build/Install-NativeImages.ps1"]
   }
 
-  # === FASE 10: Agent directories ===
+  # === FASE 10: Struttura directory agent ===
   provisioner "powershell" {
+    elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
     inline = [
       "New-Item -Path 'C:\\agent\\_work\\1\\s' -ItemType Directory -Force | Out-Null",
       "New-Item -Path 'C:\\agent\\_work\\1\\a' -ItemType Directory -Force | Out-Null",
@@ -288,25 +310,27 @@ build {
     restart_timeout = "30m"
   }
 
-  # === FASE 12: Post-restart updates ===
+  # === FASE 12: Windows Updates post-restart ===
   provisioner "powershell" {
     pause_before      = "2m0s"
-    elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
     environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
     scripts           = ["${path.root}/../scripts/build/Install-WindowsUpdatesAfterReboot.ps1"]
   }
 
   # === FASE 13: Cleanup ===
   provisioner "powershell" {
-    elevated_password = var.winrm_password
     elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
     environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
     scripts           = ["${path.root}/../scripts/build/Invoke-Cleanup.ps1"]
   }
 
   # === FASE 14: Sysprep ===
   provisioner "powershell" {
+    elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
     inline = [
       "if (Test-Path $Env:SystemRoot\\System32\\Sysprep\\unattend.xml) {",
       "  Remove-Item $Env:SystemRoot\\System32\\Sysprep\\unattend.xml -Force",
