@@ -9,13 +9,13 @@
 
   "visualStudio": {
     "edition": "BuildTools",
-    "channel": "VisualStudio.17.Release",
-    "version": "17",
+    "channel": "release",
+    "version": "2022",
+    "subversion": "17",
+    "installChannelUri": "",
     "workloads": [
       "Microsoft.VisualStudio.Workload.MSBuildTools",
-      "Microsoft.VisualStudio.Workload.NetCoreBuildTools"
-    ],
-    "components": [
+      "Microsoft.VisualStudio.Workload.NetCoreBuildTools",
       "Microsoft.Net.Component.4.8.1.SDK",
       "Microsoft.Net.Component.4.8.SDK",
       "Microsoft.Net.Component.4.7.2.SDK",
@@ -25,8 +25,7 @@
       "Microsoft.VisualStudio.Component.NuGet.BuildTools",
       "Microsoft.VisualStudio.Component.Roslyn.Compiler",
       "Microsoft.Component.MSBuild"
-    ],
-    "removeWorkloads": []
+    ]
   },
 
   "dotnet": {

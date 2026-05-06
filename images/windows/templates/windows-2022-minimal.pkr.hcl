@@ -16,7 +16,8 @@ packer {
 
 variable "iso_url" {
   type    = string
-  default = "file:///D:/virtual machine/SERVER_EVAL_x64FRE_en-us.iso"
+  # default = "file:///D:/virtual machine/SERVER_EVAL_x64FRE_en-us.iso"
+  default = "file:///C:/Devel/local pipeline/SERVER_EVAL_x64FRE_en-us.iso"
 }
 
 variable "iso_checksum" {
@@ -182,6 +183,25 @@ build {
       "Write-Host \"IMAGE_FOLDER set to: ${var.image_folder}\""
     ]
   }
+  
+  # === FASE 0f: Setta TEMP_DIR e installa Pester ===
+  provisioner "powershell" {
+    elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
+    inline = [
+      # TEMP_DIR usato da InstallHelpers.ps1
+      "New-Item -Path 'C:\\Temp' -ItemType Directory -Force | Out-Null",
+      "[Environment]::SetEnvironmentVariable('TEMP_DIR', 'C:\\Temp', 'Machine')",
+      "$env:TEMP_DIR = 'C:\\Temp'",
+      "Write-Host 'TEMP_DIR set'",
+
+      # Pester 5 richiesto da Helpers.psm1 per i test
+      "Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force",
+      "Install-Module Pester -Force -SkipPublisherCheck -MinimumVersion 5.0",
+      "Import-Module Pester -Force",
+      "Write-Host 'Pester installed'"
+    ]
+  }
 
   # === FASE 1: Configura Windows (script Microsoft) ===
   provisioner "powershell" {
@@ -212,12 +232,21 @@ build {
     scripts          = ["${path.root}/../scripts/build/Configure-SystemEnvironment.ps1"]
   }
 
-  # === FASE 2: Chocolatey (via script Microsoft, funziona bene) ===
+# === FASE 2: Chocolatey (inline, evita TEMP_DIR issues) ===
   provisioner "powershell" {
     elevated_user     = var.winrm_username
     elevated_password = var.winrm_password
-    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
-    scripts           = ["${path.root}/../scripts/build/Install-Chocolatey.ps1"]
+    inline = [
+      "Write-Host 'Installing Chocolatey...'",
+      "$env:TEMP_DIR = 'C:\\Temp'",
+      "Set-ExecutionPolicy Bypass -Scope Process -Force",
+      "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072",
+      "iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))",
+      "$env:PATH = $env:PATH + ';C:\\ProgramData\\chocolatey\\bin'",
+      "[Environment]::SetEnvironmentVariable('PATH', $env:PATH, 'Machine')",
+      "choco feature enable -n allowGlobalConfirmation",
+      "Write-Host 'Chocolatey installed'"
+    ]
   }
 
   # === FASE 3: PowerShell 7 (via Chocolatey, evita checksum issues) ===
@@ -237,6 +266,23 @@ build {
     elevated_password = var.winrm_password
     environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
     scripts           = ["${path.root}/../scripts/build/Install-Git.ps1"]
+  }
+  
+# === FASE 4b: Aggiorna root certificates (best effort) ===
+  provisioner "powershell" {
+    elevated_user     = var.winrm_username
+    elevated_password = var.winrm_password
+    inline = [
+      "Write-Host 'Updating root certificates (best effort)...'",
+      "certutil -generateSSTFromWU C:\\Temp\\roots.sst 2>$null",
+      "if (Test-Path C:\\Temp\\roots.sst) {",
+      "  certutil -addstore -f root C:\\Temp\\roots.sst",
+      "  Remove-Item C:\\Temp\\roots.sst -Force",
+      "  Write-Host 'Root certificates updated'",
+      "} else {",
+      "  Write-Host 'WARNING: Root certificates update skipped (timeout)'",
+      "}"
+    ]
   }
 
   # === FASE 5: Visual Studio Build Tools (via script Microsoft) ===

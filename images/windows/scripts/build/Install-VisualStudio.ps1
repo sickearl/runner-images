@@ -17,7 +17,7 @@ Install-VisualStudio `
     -Channel $vsToolset.channel `
     -InstallChannelUri $vsToolset.installChannelUri `
     -RequiredComponents $vsToolset.workloads `
-    -ExtraArgs "--allWorkloads --includeRecommended --remove Component.CPython3.x64" `
+    -ExtraArgs "" `
     -Architecture $vsArch
 
 # Find the version of VS installed for this instance

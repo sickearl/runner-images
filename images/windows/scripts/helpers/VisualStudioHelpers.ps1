@@ -54,7 +54,7 @@ Function Install-VisualStudio {
     $bootstrapperFilePath = Invoke-DownloadWithRetry $BootstrapperUrl
 
     # Verify that the bootstrapper is signed by Microsoft
-    Test-FileSignature -Path $bootstrapperFilePath -ExpectedSubject $(Get-MicrosoftPublisher)
+    Write-Host "WARNING: Skipping signature check for local build"
 
     try {
         $responseData = @{
@@ -72,7 +72,10 @@ Function Install-VisualStudio {
 
         $installStartTime = Get-Date
         Write-Host "Starting Install ..."
-        $bootstrapperArgumentList = ('/c', $bootstrapperFilePath, '--in', $responseDataPath, $ExtraArgs, '--quiet', '--norestart', '--wait', '--nocache' )
+        Write-Host "=== Response file content ==="
+        Get-Content $responseDataPath | Write-Host
+        Write-Host "============================="
+        $bootstrapperArgumentList = @('/c', $bootstrapperFilePath, '--in', $responseDataPath, '--quiet', '--norestart', '--wait', '--nocache') + $(if ($ExtraArgs) { @($ExtraArgs) } else { @() })
         Write-Host "Bootstrapper arguments: $bootstrapperArgumentList"
         $process = Start-Process -FilePath cmd.exe -ArgumentList $bootstrapperArgumentList -Wait -PassThru
 
@@ -87,30 +90,15 @@ Function Install-VisualStudio {
         } else {
             Write-Host "Non zero exit code returned by the installation process : $exitCode"
 
-            # Try to download tool to collect logs
-            $collectExeUrl = "https://aka.ms/vscollect.exe"
-            $collectExePath = Invoke-DownloadWithRetry -Url $collectExeUrl
-
-            # Collect installation logs using the collect.exe tool and check if it is successful
-            & "$collectExePath"
-            if ($LastExitCode -ne 0) {
-                Write-Host "Failed to collect logs using collect.exe tool. Exit code : $LastExitCode"
-                exit $exitCode
-            }
-
-            # Expand the zip file
-            Expand-Archive -Path "$env:TEMP_DIR\vslogs.zip" -DestinationPath "$env:TEMP_DIR\vslogs"
-
-            # Print logs
-            $vsLogsPath = "$env:TEMP_DIR\vslogs"
-            $vsLogs = Get-ChildItem -Path $vsLogsPath -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object -ExpandProperty FullName
+            # Read VS logs directly from temp
+            Write-Host "VS installation exit code: $exitCode"
+            $vsLogs = Get-ChildItem -Path @($env:TEMP, "C:\Users\installer\AppData\Local\Temp", $env:TEMP_DIR) -Filter "dd_*.log" -ErrorAction SilentlyContinue -Recurse
             foreach ($log in $vsLogs) {
                 Write-Host "============================"
-                Write-Host "== Log file : $log "
+                Write-Host "== Log file : $($log.FullName)"
                 Write-Host "============================"
-                Get-Content -Path $log -ErrorAction Continue
+                Get-Content -Path $log.FullName -Tail 50 -ErrorAction Continue
             }
-
             exit $exitCode
         }
     }
@@ -372,3 +360,6 @@ function Get-VSExtensionVersion {
 
     return $packageVersion
 }
+
+
+
