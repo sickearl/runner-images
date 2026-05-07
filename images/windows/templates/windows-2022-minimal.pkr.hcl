@@ -269,28 +269,60 @@ build {
   }
   
 # === FASE 4b: Aggiorna root certificates (best effort) ===
+#  provisioner "powershell" {
+#    elevated_user     = var.winrm_username
+#    elevated_password = var.winrm_password
+#    inline = [
+#      "Write-Host 'Updating root certificates (best effort)...'",
+#      "certutil -generateSSTFromWU C:\\Temp\\roots.sst 2>$null",
+#      "if (Test-Path C:\\Temp\\roots.sst) {",
+#      "  certutil -addstore -f root C:\\Temp\\roots.sst",
+#      "  Remove-Item C:\\Temp\\roots.sst -Force",
+#      "  Write-Host 'Root certificates updated'",
+#      "} else {",
+#      "  Write-Host 'WARNING: Root certificates update skipped (timeout)'",
+#      "}"
+#    ]
+#  }
+
+  # === FASE 5: Visual Studio Build Tools (via script Microsoft) ===
+#  provisioner "powershell" {
+#    elevated_user     = var.winrm_username
+#    elevated_password = var.winrm_password
+#    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
+#    scripts           = ["${path.root}/../scripts/build/Install-VisualStudio.ps1"]
+#  }
+
+# === FASE 5: Visual Studio Build Tools (inline, bypassa VisualStudioHelpers) ===
   provisioner "powershell" {
     elevated_user     = var.winrm_username
     elevated_password = var.winrm_password
     inline = [
-      "Write-Host 'Updating root certificates (best effort)...'",
-      "certutil -generateSSTFromWU C:\\Temp\\roots.sst 2>$null",
-      "if (Test-Path C:\\Temp\\roots.sst) {",
-      "  certutil -addstore -f root C:\\Temp\\roots.sst",
-      "  Remove-Item C:\\Temp\\roots.sst -Force",
-      "  Write-Host 'Root certificates updated'",
-      "} else {",
-      "  Write-Host 'WARNING: Root certificates update skipped (timeout)'",
-      "}"
+      "Write-Host 'Downloading VS Build Tools...'",
+      "$url = 'https://aka.ms/vs/17/release/vs_BuildTools.exe'",
+      "Invoke-WebRequest -Uri $url -OutFile 'C:\\Temp\\vs_BuildTools.exe' -UseBasicParsing",
+      "",
+      "Write-Host 'Installing VS Build Tools...'",
+      "$args = @(",
+      "  '--quiet', '--norestart', '--nocache', '--wait',",
+      "  '--add', 'Microsoft.VisualStudio.Workload.MSBuildTools',",
+      "  '--add', 'Microsoft.VisualStudio.Workload.NetCoreBuildTools',",
+      "  '--add', 'Microsoft.Net.Component.4.8.1.SDK',",
+      "  '--add', 'Microsoft.Net.Component.4.8.SDK',",
+      "  '--add', 'Microsoft.Net.Component.4.7.2.SDK',",
+      "  '--add', 'Microsoft.Net.Component.4.7.2.TargetingPack',",
+      "  '--add', 'Microsoft.Net.Component.4.6.2.TargetingPack',",
+      "  '--add', 'Microsoft.VisualStudio.Component.NuGet.BuildTools',",
+      "  '--add', 'Microsoft.VisualStudio.Component.Roslyn.Compiler',",
+      "  '--add', 'Microsoft.Component.MSBuild'",
+      ")",
+      "$process = Start-Process -FilePath 'C:\\Temp\\vs_BuildTools.exe' -ArgumentList $args -Wait -PassThru",
+      "if ($process.ExitCode -notin @(0, 3010)) {",
+      "  Write-Host \"VS installation failed with exit code: $($process.ExitCode)\"",
+      "  exit $process.ExitCode",
+      "}",
+      "Write-Host 'VS Build Tools installed successfully'"
     ]
-  }
-
-  # === FASE 5: Visual Studio Build Tools (via script Microsoft) ===
-  provisioner "powershell" {
-    elevated_user     = var.winrm_username
-    elevated_password = var.winrm_password
-    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
-    scripts           = ["${path.root}/../scripts/build/Install-VisualStudio.ps1"]
   }
 
   # === FASE 6: .NET SDK (via Chocolatey, evita checksum issues) ===
@@ -332,13 +364,13 @@ build {
     scripts           = ["${path.root}/../scripts/build/Configure-Toolset.ps1"]
   }
 
-  # === FASE 9: Native Images (.NET assembly optimization) ===
-  provisioner "powershell" {
-    elevated_user     = var.winrm_username
-    elevated_password = var.winrm_password
-    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
-    scripts           = ["${path.root}/../scripts/build/Install-NativeImages.ps1"]
-  }
+#  # === FASE 9: Native Images (.NET assembly optimization) ===
+#  provisioner "powershell" {
+#    elevated_user     = var.winrm_username
+#    elevated_password = var.winrm_password
+#    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
+#    scripts           = ["${path.root}/../scripts/build/Install-NativeImages.ps1"]
+#  }
 
   # === FASE 10: Struttura directory agent ===
   provisioner "powershell" {
@@ -353,15 +385,17 @@ build {
 
   # === FASE 11: Restart ===
   provisioner "windows-restart" {
-    restart_timeout = "30m"
+    restart_timeout       = "30m"
+    restart_check_command = "powershell -command \"& {Write-Output 'restarted'}\""
   }
 
-  # === FASE 12: Windows Updates post-restart ===
+  # === FASE 12: Post-restart - NO environment_vars, NO use_pwsh ===
   provisioner "powershell" {
-    pause_before      = "2m0s"
+    pause_before      = "3m0s"
     elevated_user     = var.winrm_username
     elevated_password = var.winrm_password
-    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
+    # ← NO environment_vars (causa forward slash)
+    # ← NO use_pwsh (richiede CET)
     scripts           = ["${path.root}/../scripts/build/Install-WindowsUpdatesAfterReboot.ps1"]
   }
 
@@ -369,7 +403,7 @@ build {
   provisioner "powershell" {
     elevated_user     = var.winrm_username
     elevated_password = var.winrm_password
-    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}"]
+    # ← NO environment_vars
     scripts           = ["${path.root}/../scripts/build/Invoke-Cleanup.ps1"]
   }
 

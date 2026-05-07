@@ -17,10 +17,10 @@ Write-Host "Clean up various directories"
     "$env:SystemRoot\Temp",
     "$env:SystemDrive\Users\$env:INSTALL_USER\AppData\Local\Temp",
     "$env:TEMP",
-    "$env:AZURE_CONFIG_DIR\logs",
-    "$env:AZURE_CONFIG_DIR\commands",
-    "$env:AZURE_CONFIG_DIR\telemetry"
-) | ForEach-Object {
+    "$(if($env:AZURE_CONFIG_DIR){\"$env:AZURE_CONFIG_DIR\logs\"})",
+    "$(if($env:AZURE_CONFIG_DIR){\"$env:AZURE_CONFIG_DIR\commands\"})",
+    "$(if($env:AZURE_CONFIG_DIR){\"$env:AZURE_CONFIG_DIR\telemetry\"})"
+) | Where-Object { -not [string]::IsNullOrEmpty($_) } | ForEach-Object {
     if (Test-Path $_) {
         Write-Host "Removing $_"
         cmd /c "takeown /d Y /R /f $_ 2>&1" | Out-Null
@@ -39,15 +39,15 @@ Write-Host "Clean up various directories"
 Remove-Item $profile.AllUsersAllHosts -Force -ErrorAction SilentlyContinue | Out-Null
 
 # Clean yarn and npm cache
-cmd /c "yarn cache clean 2>&1" | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to clean yarn cache"
-}
+if (Get-Command yarn -ErrorAction SilentlyContinue) {
+    cmd /c "yarn cache clean 2>&1" | Out-Null
+    if ($LASTEXITCODE -ne 0) { Write-Host "WARNING: Failed to clean yarn cache" }
+} else { Write-Host "Skipping yarn cache clean (not installed)" }
 
-cmd /c "npm cache clean --force 2>&1" | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to clean npm cache"
-}
+if (Get-Command npm -ErrorAction SilentlyContinue) {
+    cmd /c "npm cache clean --force 2>&1" | Out-Null
+    if ($LASTEXITCODE -ne 0) { Write-Host "WARNING: Failed to clean npm cache" }
+} else { Write-Host "Skipping npm cache clean (not installed)" }
 
 if (Test-IsWin25-X64) {
     $directoriesToCompact = @(
@@ -70,3 +70,5 @@ if (Test-IsWin25-X64) {
     $time = "$(($finish - $start).Minutes):$(($finish - $start).Seconds)"
     Write-Host "The process took a total of $time (in minutes:seconds)"
 }
+
+
