@@ -82,14 +82,15 @@ source "hyperv-iso" "vm" {
     "${path.root}/../answer_files/Autounattend.xml"
   ]
 
+  # ← QUESTO BLOCCO DEVE ESSERCI
   communicator   = "winrm"
   winrm_username = var.winrm_username
   winrm_password = var.winrm_password
   winrm_timeout  = "12h"
   winrm_use_ssl  = false
 
-  shutdown_command = "C:\\Windows\\System32\\Sysprep\\Sysprep.exe /generalize /oobe /shutdown /quiet"
-  shutdown_timeout = "1h"
+#  shutdown_command = "powershell -Command \"Start-Process -FilePath 'C:\\Windows\\System32\\Sysprep\\Sysprep.exe' -ArgumentList '/generalize', '/oobe', '/shutdown', '/quiet' -NoNewWindow\""
+#  shutdown_timeout = "1h"
 }
 
 # ============================================================================
@@ -383,27 +384,27 @@ build {
     ]
   }
 
-  # === FASE 11: Restart ===
+   # === FASE 11: Restart ===
   provisioner "windows-restart" {
     restart_timeout       = "30m"
     restart_check_command = "powershell -command \"& {Write-Output 'restarted'}\""
   }
 
-  # === FASE 12: Post-restart - NO environment_vars, NO use_pwsh ===
-  provisioner "powershell" {
-    pause_before      = "3m0s"
-    elevated_user     = var.winrm_username
-    elevated_password = var.winrm_password
-    # ← NO environment_vars (causa forward slash)
-    # ← NO use_pwsh (richiede CET)
-    scripts           = ["${path.root}/../scripts/build/Install-WindowsUpdatesAfterReboot.ps1"]
-  }
+  # === FASE 12: Post-restart updates ===
+  #provisioner "powershell" {
+  #  pause_before    = "3m0s"
+  #  elevated_user   = var.winrm_username
+  #  elevated_password = var.winrm_password
+  #  # Fix forward slash issue post-restart
+  #  execute_command = "powershell -executionpolicy bypass \"& { $v = '{{.Vars}}' -replace '/', [char]92; if (Test-Path $v) { . $v }; if (Test-Path variable:global:ProgressPreference){$ProgressPreference='SilentlyContinue'}; & '{{.Path}}'; exit $LastExitCode }\""
+  #  scripts         = ["${path.root}/../scripts/build/Install-WindowsUpdatesAfterReboot.ps1"]
+  #}
 
   # === FASE 13: Cleanup ===
   provisioner "powershell" {
     elevated_user     = var.winrm_username
     elevated_password = var.winrm_password
-    # ← NO environment_vars
+    execute_command   = "powershell -executionpolicy bypass \"& { $v = '{{.Vars}}' -replace '/', [char]92; if (Test-Path $v) { . $v }; if (Test-Path variable:global:ProgressPreference){$ProgressPreference='SilentlyContinue'}; & '{{.Path}}'; exit $LastExitCode }\""
     scripts           = ["${path.root}/../scripts/build/Invoke-Cleanup.ps1"]
   }
 
@@ -411,6 +412,7 @@ build {
   provisioner "powershell" {
     elevated_user     = var.winrm_username
     elevated_password = var.winrm_password
+    execute_command   = "powershell -executionpolicy bypass \"& { $v = '{{.Vars}}' -replace '/', [char]92; if (Test-Path $v) { . $v }; if (Test-Path variable:global:ProgressPreference){$ProgressPreference='SilentlyContinue'}; & '{{.Path}}'; exit $LastExitCode }\""
     inline = [
       "if (Test-Path $Env:SystemRoot\\System32\\Sysprep\\unattend.xml) {",
       "  Remove-Item $Env:SystemRoot\\System32\\Sysprep\\unattend.xml -Force",
