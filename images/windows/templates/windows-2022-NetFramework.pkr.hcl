@@ -1,4 +1,4 @@
-# windows-2022-minimal-dotnet.pkr.hcl
+# windows-2022-NetFramework.pkr.hcl
 
 packer {
   required_version = ">= 1.7.0"
@@ -32,7 +32,7 @@ variable "vm_name" {
 
 variable "output_directory" {
   type    = string
-  default = "C:\\packer-build\\BuildAgent-2022"
+  default = "C:\\packer-build\\windows-2022-NetFramework-build-agent"
 }
 
 variable "winrm_username" {
@@ -53,7 +53,7 @@ variable "image_folder" {
 
 variable "toolset_file_path" {
   type    = string
-  default = "./toolsets/toolset-2022-minimal.json"
+  default = "./toolsets/toolset-2022-NetFramework.json"
 }
 
 # ============================================================================
