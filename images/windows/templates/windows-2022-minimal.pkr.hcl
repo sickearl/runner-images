@@ -261,13 +261,12 @@ build {
   #  ]
   #}
   
-    # === FASE 3: PowerShell 7.2 LTS (no CET required) ===
+# === FASE 3: PowerShell 7.2 LTS (no CET required) ===
   provisioner "powershell" {
     elevated_user     = var.winrm_username
     elevated_password = var.winrm_password
     inline = [
       "choco install powershell-core --version=7.2.18 -y",
-      "& 'C:\\Program Files\\PowerShell\\7\\pwsh.exe' -v",
       "Write-Host 'PowerShell 7.2 LTS installed'"
     ]
   }
@@ -395,20 +394,19 @@ build {
     ]
   }
 
-   # === FASE 11: Restart ===
+     # === FASE 11: Restart ===
   provisioner "windows-restart" {
     restart_timeout       = "30m"
     restart_check_command = "powershell -command \"& {Write-Output 'restarted'}\""
   }
 
-  # === FASE 12: Post-restart updates ===
+  # === FASE 12: Windows Updates post-restart ===
   provisioner "powershell" {
-    pause_before    = "3m0s"
-    elevated_user   = var.winrm_username
+    pause_before      = "3m0s"
+    elevated_user     = var.winrm_username
     elevated_password = var.winrm_password
-    # Fix forward slash issue post-restart
-    execute_command = "powershell -executionpolicy bypass \"& { $v = '{{.Vars}}' -replace '/', [char]92; if (Test-Path $v) { . $v }; if (Test-Path variable:global:ProgressPreference){$ProgressPreference='SilentlyContinue'}; & '{{.Path}}'; exit $LastExitCode }\""
-    scripts         = ["${path.root}/../scripts/build/Install-WindowsUpdatesAfterReboot.ps1"]
+    execute_command   = "powershell -executionpolicy bypass \"& { $v = '{{.Vars}}' -replace '/', [char]92; if (Test-Path $v) { . $v }; if (Test-Path variable:global:ProgressPreference){$ProgressPreference='SilentlyContinue'}; & '{{.Path}}'; exit $LastExitCode }\""
+    scripts           = ["${path.root}/../scripts/build/Install-WindowsUpdatesAfterReboot.ps1"]
   }
 
   # === FASE 13: Cleanup ===
