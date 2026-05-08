@@ -32,7 +32,7 @@ variable "vm_name" {
 
 variable "output_directory" {
   type    = string
-  default = "output-hyperv"
+  default = "C:\\packer-build\\BuildAgent-2022"
 }
 
 variable "winrm_username" {
@@ -251,13 +251,24 @@ build {
   }
 
   # === FASE 3: PowerShell 7 (via Chocolatey, evita checksum issues) ===
+  #provisioner "powershell" {
+  #  elevated_user     = var.winrm_username
+  #  elevated_password = var.winrm_password
+  #  inline = [
+  #    "Write-Host 'Installing PowerShell 7...'",
+  #    "choco install powershell-core -y",
+  #    "Write-Host 'PowerShell 7 installed'"
+  #  ]
+  #}
+  
+    # === FASE 3: PowerShell 7.2 LTS (no CET required) ===
   provisioner "powershell" {
     elevated_user     = var.winrm_username
     elevated_password = var.winrm_password
     inline = [
-      "Write-Host 'Installing PowerShell 7...'",
-      "choco install powershell-core -y",
-      "Write-Host 'PowerShell 7 installed'"
+      "choco install powershell-core --version=7.2.18 -y",
+      "& 'C:\\Program Files\\PowerShell\\7\\pwsh.exe' -v",
+      "Write-Host 'PowerShell 7.2 LTS installed'"
     ]
   }
 
@@ -391,14 +402,14 @@ build {
   }
 
   # === FASE 12: Post-restart updates ===
-  #provisioner "powershell" {
-  #  pause_before    = "3m0s"
-  #  elevated_user   = var.winrm_username
-  #  elevated_password = var.winrm_password
-  #  # Fix forward slash issue post-restart
-  #  execute_command = "powershell -executionpolicy bypass \"& { $v = '{{.Vars}}' -replace '/', [char]92; if (Test-Path $v) { . $v }; if (Test-Path variable:global:ProgressPreference){$ProgressPreference='SilentlyContinue'}; & '{{.Path}}'; exit $LastExitCode }\""
-  #  scripts         = ["${path.root}/../scripts/build/Install-WindowsUpdatesAfterReboot.ps1"]
-  #}
+  provisioner "powershell" {
+    pause_before    = "3m0s"
+    elevated_user   = var.winrm_username
+    elevated_password = var.winrm_password
+    # Fix forward slash issue post-restart
+    execute_command = "powershell -executionpolicy bypass \"& { $v = '{{.Vars}}' -replace '/', [char]92; if (Test-Path $v) { . $v }; if (Test-Path variable:global:ProgressPreference){$ProgressPreference='SilentlyContinue'}; & '{{.Path}}'; exit $LastExitCode }\""
+    scripts         = ["${path.root}/../scripts/build/Install-WindowsUpdatesAfterReboot.ps1"]
+  }
 
   # === FASE 13: Cleanup ===
   provisioner "powershell" {
